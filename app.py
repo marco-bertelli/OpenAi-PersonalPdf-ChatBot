@@ -37,20 +37,38 @@ def main():
         embeddings = OpenAIEmbeddings()
         knowledge_base = FAISS.from_texts(chunks, embeddings)
 
-        user_question = st.text_input("Ask a question")
+        llm = OpenAI()
+        chain = load_qa_chain(llm, chain_type="stuff")
 
-        if user_question:
-            docs = knowledge_base.similarity_search(user_question, k=1)
+        # Initialize chat history
+        if "messages" not in st.session_state:
+            st.session_state.messages = []
 
-            llm = OpenAI()
-            chain = load_qa_chain(llm, chain_type="stuff")
+        for message in st.session_state.messages:
+            with st.chat_message(message["role"]):
+                st.markdown(message["content"])
+
+        # React to user input
+        if prompt := st.chat_input("Chiedimi qualcosa sul tuo pdf?"):
+        
+            st.chat_message("user").markdown(prompt)
+            # Add user message to chat history
+            st.session_state.messages.append({"role": "user", "content": prompt})
+
             with get_openai_callback() as cb:
-                response = chain.run(input_documents=docs, question=user_question)
-                print(cb)
+                    docs = knowledge_base.similarity_search(prompt, k=1)
+                    response = chain.run(input_documents=docs, question=prompt)
                 
-                st.write(response)
+                    print(cb)
+                    
+                    response = f"Bot: {response}"
+            
+                    # Display assistant response in chat message container
+                    with st.chat_message("assistant"):
+                        st.markdown(response)
+                    
+                    # Add assistant response to chat history
+                    st.session_state.messages.append({"role": "assistant", "content": response})
     
-
-
 if __name__ == '__main__':
     main()
